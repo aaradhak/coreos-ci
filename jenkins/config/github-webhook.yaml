@@ -3,5 +3,5 @@ unclassified:
     hookSecretConfigs:
       - credentialsId: github-webhook-shared-secret
     configs:
-      - credentialsId: github-coreosbot-releng-token-text
+      - credentialsId: github-coreosbot-token-text
         manageHooks: true
