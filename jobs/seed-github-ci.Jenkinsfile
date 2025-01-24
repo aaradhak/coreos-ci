@@ -1,24 +1,7 @@
 /* this job defines all the multibranch jobs for upstream CI repos */
 
 repos = [
-    "coreos/afterburn",
-    "coreos/bootupd",
-    "coreos/console-login-helper-messages",
-    "coreos/coreos-assembler",
-    "coreos/coreos-installer",
-    "coreos/coreos-ci",
-    "coreos/coreos-ci-lib",
-    "coreos/fedora-coreos-releng-automation",
-    "coreos/fedora-coreos-cincinnati",
     "coreos/fedora-coreos-config",
-    "coreos/fedora-coreos-pipeline",
-    "coreos/ignition",
-    "coreos/rpm-ostree",
-    "coreos/ssh-key-dir",
-    "coreos/zincati",
-    "openshift/os",
-    "ostreedev/ostree",
-    "rhkdump/kdump-utils"
 ]
 
 node { repos.each { repo ->
