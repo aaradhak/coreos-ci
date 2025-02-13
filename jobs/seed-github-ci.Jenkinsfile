@@ -1,7 +1,7 @@
 /* this job defines all the multibranch jobs for upstream CI repos */
 
 repos = [
-    "coreos/fedora-coreos-config",
+    "coreosbot-releng/fedora-coreos-config",
 ]
 
 node { repos.each { repo ->
