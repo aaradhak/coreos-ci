@@ -8,5 +8,6 @@ unclassified:
           virtualHost: "/public_pubsub"
           exchange: "amq.topic"
           authenticationMethod:
-            x509Certificate:
-              credentialId: "fedora-messaging-coreos-x509-cert"
+            sslCertificate:
+              keyStoreCredentialId: "fedora-messaging-keystore"
+              trustStoreCredentialId: "fedora-messaging-truststore"
