@@ -9,4 +9,4 @@ unclassified:
           exchange: "amq.topic"
           authenticationMethod:
             x509Certificate:
-              credentialId: "fedora-messaging-coreos-x509-cert"
+              credentialId: "fedora-messaging-x509-cert"
