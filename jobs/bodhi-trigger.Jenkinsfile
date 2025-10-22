@@ -51,6 +51,7 @@ properties([
         rabbitMQSubscriber(
             name: 'Fedora Messaging',
             overrides: [
+                // https://apps.fedoraproject.org/datagrepper/raw?topic=org.fedoraproject.prod.bodhi.update.status.testing.koji-build-group.build.complete&delta=100000
                 topic: 'org.fedoraproject.prod.bodhi.update.status.testing.koji-build-group.build.complete',
                 // https://github.com/jenkinsci/jms-messaging-plugin/issues/262
                 queue: 'eb65f4a0-9daa-4689-9bdb-910158b3abba'
@@ -114,7 +115,18 @@ if (matching_streams.size() == 1) {
     error("multiple non-devel matching streams found: ${matching_streams}")
 }
 
-currentBuild.description = msg.update.builds[0].nvr
+// Find the builds in the update we care about and update the
+// description with those build NVRs.
+def coreos_builds = []
+for (srpm in srpms) {
+    for (build in msg.update.builds) {
+        if (build.nvr.startsWith(srpm)) {
+            coreos_builds += build.nvr
+        }
+    }
+}
+currentBuild.description = coreos_builds.join(" ")
+
 
 if (test_mode) {
     println("Would trigger test-override with STREAM=${stream}")
@@ -124,21 +136,7 @@ if (test_mode) {
 cosaPod(cpu: "0.1", kvm: false) {
     def test = null
 
-    stage("Report Running") {
-        withCredentials([usernamePassword(credentialsId: 'resultsdb-auth',
-                                          usernameVariable: 'RDB_USERNAME',
-                                          passwordVariable: 'RDB_PASSWORD')]) {
-            shwrap("""/usr/lib/coreos-assembler/resultsdb-report \
-                --testcase cosa.build-and-test \
-                --testcase-url ${JENKINS_URL}/job/test-override \
-                --testrun-url ${JENKINS_URL}/job/test-override \
-                --outcome RUNNING --advisory ${msg.update.updateid} \
-                --stream ${stream}
-            """)
-        }
-    }
-
-    stage("Test") {
+    stage("Trigger Test") {
         // Let's not try to be fancy; if the update has multiple bundled builds,
         // just run all the tests. That shouldn't happen very often anyway, so it's not
         // worth the complexity of trying to combine.
@@ -157,44 +155,14 @@ cosaPod(cpu: "0.1", kvm: false) {
             test_patterns += " basic"
         }
 
-        test = build(job: 'test-override', propagate: false, wait: true,
-                     parameters: [
-                        string(name: 'STREAM', value: stream),
-                        string(name: 'OVERRIDES', value: msg.update.url),
-                        string(name: 'TESTS', value: test_patterns),
-                        string(name: 'TESTISO_TESTS', value: testiso_patterns),
-                     ])
+        build(job: 'test-override', propagate: false, wait: false,
+              parameters: [
+                 string(name: 'STREAM', value: stream),
+                 string(name: 'OVERRIDES', value: msg.update.url),
+                 string(name: 'TESTS', value: test_patterns),
+                 string(name: 'TESTISO_TESTS', value: testiso_patterns),
+                 string(name: 'DESCRIPTION', value: currentBuild.description),
+                 booleanParam(name: 'REPORT_TO_RESULTSDB', value: true),
+              ])
     }
-
-    stage("Report Completion") {
-        def outcome
-        def emoji
-        // treat UNSTABLE as PASSED too; we often have expired snoozed tests
-        // that'll warn and Greenwave/Bodhi treats NEEDS_INSPECTION outcomes
-        // as blocking
-        if (test.result == 'SUCCESS' || test.result == 'UNSTABLE') {
-            emoji = "🟢"
-            outcome = 'PASSED'
-        } else {
-            emoji = "🔴"
-            outcome = 'FAILED'
-        }
-        def blueocean_url = "${JENKINS_URL}/blue/organizations/jenkins/test-override/detail/test-override/${test.number}"
-        withCredentials([usernamePassword(credentialsId: 'resultsdb-auth',
-                                          usernameVariable: 'RDB_USERNAME',
-                                          passwordVariable: 'RDB_PASSWORD')]) {
-            shwrap("""/usr/lib/coreos-assembler/resultsdb-report \
-                --testcase cosa.build-and-test \
-                --testcase-url ${JENKINS_URL}/job/test-override \
-                --testrun-url ${blueocean_url} \
-                --outcome ${outcome} --advisory ${msg.update.updateid} \
-                --stream ${stream}
-            """)
-        }
-        def bodhi_url="https://bodhi.fedoraproject.org/updates/${msg.update.updateid}"
-        pipeutils.matrixSend("${emoji} ${currentBuild.description} - [🌊](${blueocean_url}) [🪷](${bodhi_url})")
-    }
-
-    // propagate
-    currentBuild.result = test.result
 }
